@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lenior - Assistente de Samuel</title>
+    <style>
+        body { font-family: Arial; max-width: 700px; margin: 40px auto; padding: 20px; background: #f4f6f8; }
+        h1 { color: #2c3e50; }
+        #chat { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .msg { padding: 10px; border-radius: 8px; margin-bottom: 10px; }
+        .user { background: #d5e8ff; text-align: right; }
+        .lenior { background: #e8f5e9; }
+        input, button { padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 6px; }
+        button { background: #4CAF50; color: white; cursor: pointer; border: none; }
+        button:hover { background: #45a049; }
+        audio { width: 100%; margin-top: 10px; }
+        #loader { display: none; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Lenior - Assistente de Samuel</h1>
+    <div id="chat">
+        <div id="mensagens"></div>
+        <input type="text" id="entrada" placeholder="Digite sua mensagem..." style="width: 70%;">
+        <button onclick="enviarTexto()">Enviar</button>
+        <br>
+        <button onclick="iniciarGravacao()">🎤 Falar</button>
+        <button onclick="pararGravacao()">⏹️ Parar</button>
+        <div id="loader">Processando...</div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000"; // mude para seu endpoint quando hospedar
+        let sessaoId = localStorage.getItem('sessaoId') || null;
+        let mediaRecorder;
+        let audioChunks = [];
+
+        function adicionar(quem, texto) {
+            const div = document.createElement('div');
+            div.className = 'msg ' + (quem === 'Lenior' ? 'lenior' : 'user');
+            div.innerHTML = `<strong>${quem}:</strong> ${texto}`;
+            document.getElementById('mensagens').appendChild(div);
+        }
+
+        async function enviarTexto() {
+            const input = document.getElementById('entrada');
+            const texto = input.value.trim();
+            if (!texto) return;
+            input.value = '';
+            adicionar('Você', texto);
+            document.getElementById('loader').style.display = 'block';
+
+            try {
+                const resp = await fetch(`${API_URL}/chat/texto`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ texto, sessao_id: sessaoId })
+                });
+                const data = await resp.json();
+                sessaoId = data.sessao_id;
+                localStorage.setItem('sessaoId', sessaoId);
+                adicionar('Lenior', data.texto);
+                if (data.audio) {
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = 'data:audio/wav;base64,' + data.audio;
+                    document.getElementById('mensagens').appendChild(audio);
+                }
+            } catch (e) {
+                adicionar('Erro', 'Falha na API.');
+            }
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        function iniciarGravacao() {
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = enviarAudio;
+                mediaRecorder.start();
+                document.getElementById('loader').textContent = 'Gravando...';
+            });
+        }
+
+        function pararGravacao() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                document.getElementById('loader').textContent = 'Processando...';
+            }
+        }
+
+        async function enviarAudio() {
+            const blob = new Blob(audioChunks, { type: 'audio/mp3' });
+            audioChunks = [];
+            const formData = new FormData();
+            formData.append('audio', blob, 'audio.mp3');
+            if (sessaoId) formData.append('sessao_id', sessaoId);
+
+            try {
+                const resp = await fetch(`${API_URL}/chat/audio`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await resp.json();
+                sessaoId = data.sessao_id;
+                localStorage.setItem('sessaoId', sessaoId);
+                adicionar('Lenior', data.texto);
+                if (data.audio) {
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = 'data:audio/wav;base64,' + data.audio;
+                    document.getElementById('mensagens').appendChild(audio);
+                }
+            } catch (e) {
+                adicionar('Erro', 'Falha ao enviar áudio.');
+            }
+            document.getElementById('loader').textContent = 'Pronto';
+        }
+    </script>
+</body>
+</html>
