@@ -37,8 +37,6 @@
         // =============================================
 
         let sessaoId = localStorage.getItem('sessaoId') || null;
-        let mediaRecorder;
-        let audioChunks = [];
 
         function adicionar(quem, texto) {
             const div = document.createElement('div');
@@ -56,12 +54,19 @@
             document.getElementById('loader').style.display = 'block';
 
             try {
+                // Monta o corpo apenas com o texto (sessao_id é opcional)
+                const corpo = { texto };
+                if (sessaoId) corpo.sessao_id = sessaoId;
+
                 const resp = await fetch(`${API_URL}/chat/texto`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ texto, sessao_id: sessaoId })
+                    body: JSON.stringify(corpo)
                 });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                if (!resp.ok) {
+                    const erro = await resp.text();
+                    throw new Error(`HTTP ${resp.status}: ${erro}`);
+                }
                 const data = await resp.json();
                 sessaoId = data.sessao_id;
                 localStorage.setItem('sessaoId', sessaoId);
@@ -83,6 +88,10 @@
             }
             document.getElementById('loader').style.display = 'none';
         }
+
+        // Áudio (gravação)
+        let mediaRecorder;
+        let audioChunks = [];
 
         function iniciarGravacao() {
             navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
@@ -113,7 +122,10 @@
                     method: 'POST',
                     body: formData
                 });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                if (!resp.ok) {
+                    const erro = await resp.text();
+                    throw new Error(`HTTP ${resp.status}: ${erro}`);
+                }
                 const data = await resp.json();
                 sessaoId = data.sessao_id;
                 localStorage.setItem('sessaoId', sessaoId);
@@ -130,13 +142,13 @@
                     document.getElementById('mensagens').appendChild(pre);
                 }
             } catch (e) {
-                adicionar('Erro', 'Falha ao enviar áudio: ' + e.message);
+                adicionar('Erro', 'Falha no áudio: ' + e.message);
                 console.error(e);
             }
             document.getElementById('loader').textContent = 'Pronto';
         }
 
-        // Mensagem automática de boas-vindas
+        // Mensagem de boas-vindas
         window.onload = function() {
             adicionar('Lenior', 'Olá Samuel! Sou Lenior, seu assistente. Estou pronto para ajudar com programação, perguntas e muito mais. Pergunte algo!');
         };
