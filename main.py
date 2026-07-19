@@ -11,13 +11,13 @@ import sys
 import google.generativeai as genai
 from gtts import gTTS
 
-# ========= CONFIGURE AQUI SUA CHAVE =========
-API_KEY = "AQ.Ab8RN6IlIo1YBF_lBQ0W4u73XQqIIT7I7Mbpx6l5-yoUSVqt9g"  # SUBSTITUA PELA NOVA CHAVE
-# =============================================
+# ========= COLOQUE AQUI SUA CHAVE (NOVA) =========
+API_KEY = "AQ.Ab8RN6IlIo1YBF_lBQ0W4u73XQqIIT7I7Mbpx6l5-yoUSVqt9g"  # SUBSTITUA!
+# =================================================
 
 genai.configure(api_key=API_KEY)
 
-app = FastAPI(title="Lenior API - Gemini")
+app = FastAPI(title="Lenior API - Assistente de Samuel")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -25,14 +25,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# System prompt para a Lenior
 SYSTEM_PROMPT = (
     "Você é Lenior, um assistente pessoal criado para Samuel. "
-    "Você é especialista em programação, pode gerar e executar código Python. "
-    "Responda sempre em português do Brasil, de forma amigável."
+    "Você é especialista em programação e pode gerar e executar código Python. "
+    "Responda sempre em português do Brasil, de forma amigável e prestativa."
 )
 
-# Armazenamento de histórico (em memória)
 sessoes = {}
 
 class Mensagem(BaseModel):
@@ -44,7 +42,6 @@ def extrair_codigo(texto):
     return match.group(1) if match else None
 
 def executar_codigo(codigo):
-    # Bloqueios simples
     for palavra in ['os.system', 'subprocess', 'eval', 'exec', '__import__']:
         if palavra in codigo:
             return {"erro": f"Comando bloqueado: {palavra}"}
@@ -61,7 +58,6 @@ def executar_codigo(codigo):
 
 def sintetizar_voz(texto):
     try:
-        # Tenta usar o modelo TTS do Gemini (se disponível)
         modelo_tts = genai.GenerativeModel("gemini-2.5-flash-tts-preview")
         config = {"speech_config": {"voice": "Kore"}}
         resposta = modelo_tts.generate_content(texto, generation_config=config, response_format={"type": "audio/wav"})
@@ -70,7 +66,6 @@ def sintetizar_voz(texto):
             return base64.b64decode(audio_data)
         return audio_data
     except:
-        # Fallback gTTS
         with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp:
             tts = gTTS(texto, lang='pt-br')
             tts.save(tmp.name)
@@ -81,7 +76,7 @@ def sintetizar_voz(texto):
 
 @app.get("/")
 def home():
-    return {"mensagem": "Lenior está online!"}
+    return {"mensagem": "Lenior está online! Criado para Samuel."}
 
 @app.post("/chat/texto")
 async def chat_texto(mensagem: Mensagem):
@@ -99,17 +94,15 @@ async def chat_texto(mensagem: Mensagem):
     resposta = chat.send_message(mensagem.texto)
     texto_resposta = resposta.text
 
-    # Verifica se há código para executar
     codigo = extrair_codigo(texto_resposta)
     exec_result = None
     if codigo:
         exec_result = executar_codigo(codigo)
         if exec_result.get("saida"):
-            texto_resposta += f"\n\n**Saída:**\n{exec_result['saida']}"
+            texto_resposta += f"\n\n**Saída do código:**\n{exec_result['saida']}"
         if exec_result.get("erro"):
             texto_resposta += f"\n\n**Erro:**\n{exec_result['erro']}"
 
-    # Gera áudio
     try:
         audio_bytes = sintetizar_voz(texto_resposta)
         audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
@@ -125,21 +118,17 @@ async def chat_texto(mensagem: Mensagem):
 
 @app.post("/chat/audio")
 async def chat_audio(audio: UploadFile = File(...), sessao_id: str = Form(None)):
-    # Salva áudio recebido
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
         content = await audio.read()
         tmp.write(content)
         path = tmp.name
 
-    # Transcrição com Gemini
     uploaded_file = genai.upload_file(path)
     model_stt = genai.GenerativeModel("gemini-1.5-flash")
     resposta_transcricao = model_stt.generate_content(["Transcreva este áudio", uploaded_file])
     texto_usuario = resposta_transcricao.text
     os.unlink(path)
 
-    # Agora chama o chat de texto com a transcrição
-    # Reutilizamos a lógica de chat texto
     sessao_id = sessao_id or "default"
     if sessao_id not in sessoes:
         model = genai.GenerativeModel("gemini-1.5-flash")
@@ -159,7 +148,7 @@ async def chat_audio(audio: UploadFile = File(...), sessao_id: str = Form(None))
     if codigo:
         exec_result = executar_codigo(codigo)
         if exec_result.get("saida"):
-            texto_resposta += f"\n\n**Saída:**\n{exec_result['saida']}"
+            texto_resposta += f"\n\n**Saída do código:**\n{exec_result['saida']}"
         if exec_result.get("erro"):
             texto_resposta += f"\n\n**Erro:**\n{exec_result['erro']}"
 
