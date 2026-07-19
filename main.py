@@ -11,9 +11,9 @@ import sys
 import google.generativeai as genai
 from gtts import gTTS
 
-# ========= COLOQUE AQUI SUA CHAVE (NOVA) =========
-API_KEY = "AQ.Ab8RN6IlIo1YBF_lBQ0W4u73XQqIIT7I7Mbpx6l5-yoUSVqt9g"  # SUBSTITUA!
-# =================================================
+# ========== CHAVE FIXA (SUBSTITUA SE NECESSÁRIO) ==========
+API_KEY = "AQ.Ab8RN6KRw6VIZfTTwWxjgWXR3PKMrOdBKKfkGjWfDgB_0xskOw"
+# =========================================================
 
 genai.configure(api_key=API_KEY)
 
