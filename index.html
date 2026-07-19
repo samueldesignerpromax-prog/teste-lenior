@@ -16,6 +16,7 @@
         button:hover { background: #45a049; }
         audio { width: 100%; margin-top: 10px; }
         #loader { display: none; color: #666; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 6px; overflow-x: auto; }
     </style>
 </head>
 <body>
@@ -31,7 +32,10 @@
     </div>
 
     <script>
-        const API_URL = "http://localhost:8000"; // mude para o link hospedado depois
+        // ============ URL DA API HOSPEDADA ============
+        const API_URL = "https://lenior-api-1-hvvj.onrender.com";
+        // =============================================
+
         let sessaoId = localStorage.getItem('sessaoId') || null;
         let mediaRecorder;
         let audioChunks = [];
@@ -57,6 +61,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ texto, sessao_id: sessaoId })
                 });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 sessaoId = data.sessao_id;
                 localStorage.setItem('sessaoId', sessaoId);
@@ -67,8 +72,14 @@
                     audio.src = 'data:audio/wav;base64,' + data.audio;
                     document.getElementById('mensagens').appendChild(audio);
                 }
+                if (data.execucao) {
+                    const pre = document.createElement('pre');
+                    pre.textContent = 'Execução: ' + JSON.stringify(data.execucao, null, 2);
+                    document.getElementById('mensagens').appendChild(pre);
+                }
             } catch (e) {
-                adicionar('Erro', 'Falha na API.');
+                adicionar('Erro', 'Falha na API: ' + e.message);
+                console.error(e);
             }
             document.getElementById('loader').style.display = 'none';
         }
@@ -86,7 +97,7 @@
         function pararGravacao() {
             if (mediaRecorder && mediaRecorder.state === 'recording') {
                 mediaRecorder.stop();
-                document.getElementById('loader').textContent = 'Processando...';
+                document.getElementById('loader').textContent = 'Processando áudio...';
             }
         }
 
@@ -102,6 +113,7 @@
                     method: 'POST',
                     body: formData
                 });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 sessaoId = data.sessao_id;
                 localStorage.setItem('sessaoId', sessaoId);
@@ -112,11 +124,22 @@
                     audio.src = 'data:audio/wav;base64,' + data.audio;
                     document.getElementById('mensagens').appendChild(audio);
                 }
+                if (data.execucao) {
+                    const pre = document.createElement('pre');
+                    pre.textContent = 'Execução: ' + JSON.stringify(data.execucao, null, 2);
+                    document.getElementById('mensagens').appendChild(pre);
+                }
             } catch (e) {
-                adicionar('Erro', 'Falha ao enviar áudio.');
+                adicionar('Erro', 'Falha ao enviar áudio: ' + e.message);
+                console.error(e);
             }
             document.getElementById('loader').textContent = 'Pronto';
         }
+
+        // Mensagem automática de boas-vindas
+        window.onload = function() {
+            adicionar('Lenior', 'Olá Samuel! Sou Lenior, seu assistente. Estou pronto para ajudar com programação, perguntas e muito mais. Pergunte algo!');
+        };
     </script>
 </body>
 </html>
